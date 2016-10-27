@@ -1,42 +1,91 @@
 class TOH
 	def initialize(stack_size=4,rods=3,target_rod=2)
-		@stack_size = stack_size
-		p "stack_size: #{@stack_size}"
-		@rods = []
-    @target_rod = target_rod
-    p "goal: #{@target_rod+1}"
-		rods.times {|i| @rods << []}
-		
-		@stack_size.downto(1) {|plate| @rods[0] << plate}
-		p "rods: #{@rods}"
-    @goal = @rods[0].dup
+		@stack_size, @rods, @target_rod = stack_size, rods, target_rod
+    @gameboard = []
+		@rods.times {|i| @gameboard << []}
+		@stack_size.downto(1) do
+      |plate| @gameboard[0] << plate
+    end
+    @goal = @gameboard[0].dup
+    @pickup_line = "Where would you like to pick up a plate from?(\#1-#{@gameboard.length})"
+    @pickup_error = "No plates in that location"
+    @putdown_line = "Where would you like to move a plate to?(\#1-#{@gameboard.length})"
+    @putdown_error = "Plates can only be stacked on larger plates"
     play
 	end
-  def win?
-    @goal == @rods[@target_rod]
+
+  def display_gameboard
+    
+    grid = []
+    full_board = @gameboard
+
+    @stack_size.times do |row|
+      grid << []
+
+      @gameboard.each do |column|
+        grid[row] << column[row]
+      end
+    end
+    grid.reverse!
+    grid.each do |row|
+      row.each do |cell|
+        cell = cell || 0
+        print "#{' '*(@stack_size+1-cell)}#{'##'*cell}#{' '*(@stack_size+1-cell)} | "
+      end
+      puts " "
+    end
+    puts "#{'-'*6*(@stack_size+2)}-"
+    (1..@rods).each {|num| print "#{' '*@stack_size}0#{num}#{' '*@stack_size}   "}
+    print "\n\n"
   end
+
+  def move compare=false
+    yield(false)
+    rod = gets.chomp.to_i
+    until valid?(rod, compare)
+      display_gameboard
+      yield(true)
+      rod = gets.chomp.to_i
+    end
+    return rod
+  end
+
   def play
+    display_gameboard
     until win?
-      move
+      take_turn
+      display_gameboard
     end
     p "Congratulations, You won!"
   end
-  def valid? rod, target
-    return true
-  end
-	def move
-    p "Where would you like to move from?"
-    rod = gets.chomp.to_i
-    p "Where would you like to move?(\#1-#{@rods.length})"
-    target = gets.chomp.to_i
-    if valid?(rod,target)
-      p @rods[rod-1]
-      p @rods[rod-1][-1] 
-      @rods[target-1] << @rods[rod-1][-1] 
-      @rods[rod-1].pop
-      p @rods[target-1]
+
+	def take_turn
+    plate, target, first = 0, 0, true
+    plate = move do |error|
+      if error then puts "\n\n#{@pickup_error}\n\n" end
+      puts "\n#{@pickup_line} "
     end
+    target = move plate do |error|
+      if error then puts "\n\n#{@putdown_error}\n\n" end
+      puts "\n#{@putdown_line} "
+    end
+    @gameboard[target-1] << @gameboard[plate-1][-1]
+    @gameboard[plate-1].pop
 	end
+
+  def valid? location, size_check=false
+    if (1..@rods).include?(location)
+      if (size_check)
+        return (!@gameboard[location-1][-1] || @gameboard[location-1][-1] >= @gameboard[size_check-1][-1])
+      else
+        return @gameboard[location-1][-1] != nil
+      end
+    end
+  end
+
+  def win?
+    @goal == @gameboard[@target_rod]
+  end
 end
 
 TOH.new 4, 3
